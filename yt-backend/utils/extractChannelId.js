@@ -1,4 +1,6 @@
-// Quick check: is this already a real channelId? (UC... and length ~24)
+//Sole purpose of extractChannelId is to figure out what the input is, is it a id, user, handle
+
+// Quick check: is this already a real channelId? (UC... and length ~24) then return true
 function looksLikeChannelId(s) {
     return typeof s === 'string' && /^UC[a-zA-Z0-9_-]{22}$/.test(s);
   }
