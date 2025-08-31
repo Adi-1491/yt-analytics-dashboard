@@ -19,7 +19,7 @@ app.get('/api/health', (req, res) => {
 const youtubeRoutes = require('./routes/youtubeRoutes');
 app.use('/api/youtube', youtubeRoutes);
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5050;
 app.listen(PORT, () => {
     console.log(`Server Runnning on port ${PORT}`);
 });
