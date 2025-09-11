@@ -50,6 +50,10 @@ export default function HomePage() {
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [recent, setRecent] = useState<VideoItem[] | null>(null);
 
+  // pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const videosPerPage = 10;
+
   // sorting state for the table
   type SortKey =
   | "title"
@@ -97,6 +101,13 @@ const sortedRecent = useMemo<VideoItem[]>(() => {
   });
 }, [recent, sortKey, sortDir]);
 
+// Get videos for the current page
+const paginatedVideos = useMemo(() => {
+  const startIndex = (currentPage - 1) * videosPerPage;
+  const endIndex = startIndex + videosPerPage;
+  return sortedRecent.slice(startIndex, endIndex);
+}, [sortedRecent, currentPage]);
+
 function toggleSort(key: SortKey) {
   if (sortKey === key) {
     setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -106,6 +117,20 @@ function toggleSort(key: SortKey) {
   }
 }
 
+// Pagination controls
+const totalPages = Math.ceil((recent?.length || 0) / videosPerPage);
+
+function goToNextPage() {
+  setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+}
+
+function goToPreviousPage() {
+  setCurrentPage((prev) => Math.max(prev - 1, 1));
+}
+
+function goToPage(page: number) {
+  setCurrentPage(page);
+}
 
   // hydrate last query
   useEffect(() => {
@@ -257,14 +282,43 @@ function toggleSort(key: SortKey) {
         </>
       )}
 
-      {/* table (sorted) */}
+      {/* table (paginated) */}
       {!loading && recent && (
-        <VideoTable
-          videos={sortedRecent}
-          sortKey={sortKey}
-          sortDir={sortDir}
-          onToggleSort={toggleSort}
-        />
+        <>
+          <VideoTable
+            videos={paginatedVideos}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onToggleSort={toggleSort}
+          />
+          <div className="flex justify-between items-center mt-4">
+            <button
+              onClick={goToPreviousPage}
+              disabled={currentPage === 1}
+              className="rounded-md border px-3 py-1"
+            >
+              Previous
+            </button>
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={totalPages}
+              value={currentPage}
+              onChange={(e) => goToPage(Number(e.target.value))}
+              className="w-16 text-center border rounded-md"
+            />
+            <button
+              onClick={goToNextPage}
+              disabled={currentPage === totalPages}
+              className="rounded-md border px-3 py-1"
+            >
+              Next
+            </button>
+          </div>
+        </>
       )}
     </main>
   );
