@@ -3,7 +3,8 @@ import axios from "axios";
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5050/api/youtube";
 
-// ---- Types that mirror your backend responses (adjust later if needed) ----
+/* ---------- Types (mirror your backend responses) ---------- */
+
 export interface ChannelSummary {
   channelId: string;
   name: string;
@@ -14,18 +15,22 @@ export interface ChannelSummary {
   totalVideos: number | string | null;
 }
 
-export interface Thumbnail { url: string; width: number; height: number; }
+export interface Thumbnail {
+  url: string;
+  width?: number;
+  height?: number;
+}
 
 export interface VideoItem {
   videoId: string | null;
   title: string | null;
   publishedAt: string | null;
-  thumbnails?: { default?: Thumbnail; medium?: Thumbnail; high?: Thumbnail; };
-  duration: string | null;     // e.g., "PT12M30S"
+  thumbnails?: { default?: Thumbnail; medium?: Thumbnail; high?: Thumbnail };
+  duration: string | null; // ISO 8601 e.g., "PT12M30S"
   views: number | null;
   likes: number | null;
   comments: number | null;
-  engagementRate: number | null;
+  engagementRate: number | null; // fraction 0..1
 }
 
 export interface Aggregates {
@@ -37,17 +42,13 @@ export interface Aggregates {
 export interface SummaryResponse {
   channel: ChannelSummary;
   aggregates: Aggregates;
-  videos: VideoItem[];         // ok if empty
+  videos: VideoItem[];
 }
 
-// ——— API calls ———
-type ChannelInput = { url: string } | { channelId: string };
+/* ---------- Requests ---------- */
 
-// type HealthResponse = {
-//   ok: boolean;
-//   envKeyLoaded: boolean;
-//   keyPreview: string | null;
-// };
+type ChannelInput = { url: string } | { channelId: string };
+export type FetchOpts = { maxResults?: number; days?: number };
 
 type RecentRequest = {
   channelId: string;
@@ -55,36 +56,34 @@ type RecentRequest = {
   days?: number;
 };
 
+/* ---------- API calls ---------- */
+
 export async function getHealth() {
-  // your server exposes /api/health at the root (not under /youtube)
-  const base = API_BASE.replace("/youtube", "");
+  // health is at /api/health (not under /youtube)
+  const base = API_BASE.replace(/\/youtube$/, "");
   const { data } = await axios.get(`${base}/health`);
   return data as { ok: boolean; envKeyLoaded: boolean; keyPreview: string | null };
 }
 
 export async function getChannelInfo(input: ChannelInput): Promise<ChannelSummary> {
   const { data } = await axios.post(`${API_BASE}/channel`, input);
-  return data;
+  return data as ChannelSummary;
 }
 
-export type FetchOpts = { maxResults?: number; days?: number };
-
-export async function getChannelSummary(channelId: string): Promise<SummaryResponse> {
-  const { data } = await axios.post(`${API_BASE}/summary`, { channelId });
-  return data;
+export async function getChannelSummary(
+  channelId: string,
+  opts: FetchOpts = {}
+): Promise<SummaryResponse> {
+  const payload = { channelId, ...opts };
+  const { data } = await axios.post(`${API_BASE}/summary`, payload);
+  return data as SummaryResponse;
 }
 
 export async function getRecentVideos(
   channelId: string,
-  maxResults?: number,
-  days?: number
+  opts: FetchOpts = {}
 ): Promise<VideoItem[]> {
-  const body: RecentRequest = { channelId };
-  
-  if (typeof maxResults === "number") body.maxResults = maxResults;
-  if (typeof days === "number") body.days = days;
-
+  const body: RecentRequest = { channelId, ...opts };
   const { data } = await axios.post(`${API_BASE}/recent`, body);
-  return data;
+  return data as VideoItem[];
 }
-

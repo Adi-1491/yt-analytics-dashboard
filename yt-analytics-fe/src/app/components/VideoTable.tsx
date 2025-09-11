@@ -1,8 +1,24 @@
 "use client";
-import { formatDate, formatNumber, formatPercent, formatISODuration } from "../lib/format";
+import { formatDate, formatISODuration, formatNumber, formatPercent } from "../lib/format";
 import type { VideoItem } from "../lib/api";
 
-export default function VideoTable({ videos }: { videos: VideoItem[] }) {
+type SortKey = "title" | "publishedAt" | "duration" | "views" | "likes" | "comments" | "engagementRate";
+type SortDir = "asc" | "desc";
+
+export default function VideoTable({
+  videos,
+  sortKey,
+  sortDir,
+  onToggleSort,
+}: {
+  videos: VideoItem[];
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onToggleSort: (k: SortKey) => void;
+}) {
+  const Arrow = ({ k }: { k: SortKey }) =>
+    sortKey !== k ? <span className="opacity-40">↕</span> : sortDir === "asc" ? <span>↑</span> : <span>↓</span>;
+
   if (!videos?.length) return null;
 
   return (
@@ -12,13 +28,27 @@ export default function VideoTable({ videos }: { videos: VideoItem[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left">
-              <th className="p-2">Title</th>
-              <th className="p-2">Published</th>
-              <th className="p-2">Duration</th>
-              <th className="p-2 text-right">Views</th>
-              <th className="p-2 text-right">Likes</th>
-              <th className="p-2 text-right">Comments</th>
-              <th className="p-2 text-right">Engagement</th>
+              <th className="p-2 cursor-pointer select-none" onClick={() => onToggleSort("title")}>
+                Title <Arrow k="title" />
+              </th>
+              <th className="p-2 cursor-pointer select-none" onClick={() => onToggleSort("publishedAt")}>
+                Published <Arrow k="publishedAt" />
+              </th>
+              <th className="p-2 cursor-pointer select-none" onClick={() => onToggleSort("duration")}>
+                Duration <Arrow k="duration" />
+              </th>
+              <th className="p-2 text-right cursor-pointer select-none" onClick={() => onToggleSort("views")}>
+                Views <Arrow k="views" />
+              </th>
+              <th className="p-2 text-right cursor-pointer select-none" onClick={() => onToggleSort("likes")}>
+                Likes <Arrow k="likes" />
+              </th>
+              <th className="p-2 text-right cursor-pointer select-none" onClick={() => onToggleSort("comments")}>
+                Comments <Arrow k="comments" />
+              </th>
+              <th className="p-2 text-right cursor-pointer select-none" onClick={() => onToggleSort("engagementRate")}>
+                Engagement <Arrow k="engagementRate" />
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -28,11 +58,7 @@ export default function VideoTable({ videos }: { videos: VideoItem[] }) {
                   <div className="flex items-center gap-2">
                     {v.thumbnails?.default?.url && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={v.thumbnails.default.url}
-                        alt=""
-                        className="h-8 w-14 object-cover rounded"
-                      />
+                      <img src={v.thumbnails.default.url} alt="" className="h-8 w-14 object-cover rounded" />
                     )}
                     {v.videoId ? (
                       <a

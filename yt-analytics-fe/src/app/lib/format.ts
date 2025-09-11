@@ -31,3 +31,11 @@ export const formatNumber = (n: number | string | null | undefined) => {
     return h ? `${h}:${pad(min)}:${pad(s)}` : `${min}:${pad(s)}`;
   };
   
+// parse ISO 8601 duration (PT#H#M#S) to seconds for sorting
+export const durationToSeconds = (iso?: string | null) =>{
+  if (!iso) return null;
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return null;
+  const h = Number(m[1] || 0), min = Number(m[2] || 0), s = Number(m[3] || 0);
+  return h * 3600 + min * 60 + s;
+}
