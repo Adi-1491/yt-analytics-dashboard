@@ -1,3 +1,4 @@
+const express = require('express');
 const axios = require('axios');
 const { extractChannelId } = require('../utils/extractChannelId');
 
@@ -34,6 +35,26 @@ async function resolveChannelId({ url, channelId }) {
   }
 
   throw new Error('Could not resolve channelId');
+}
+
+//helper for the heatMap
+
+async function getUploadsPlaylistId(channelId) {
+  const resp = await axios.get('https://www.googleapis.com/youtube/v3/channels', {
+    params: {part: 'contentDetails', id:channelId, key:YOUTUBE_API_KEY, maxResults:1},
+  });
+  return resp.data?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads || null;
+}
+
+//helper to convert UTC to IST
+function istDayHour(isoUtc) {
+  const t = Date.parse(isoUtc);
+  const istMs = t + 330 * 60 * 1000; //+5h30m (IST)
+  const d = new Date(istMs);
+  const sunday0 = d.getUTCDay();     // 0..6 (Sun=0, Sat=6)
+  const hour = d.getUTCHours();      // 0..23
+  const day = (sunday0 + 6) % 7;     // Convert to Mon=0, Sun=6
+  return { day, hour };
 }
 
 /** ---------- existing channel info (kept) ---------- **/
@@ -203,4 +224,153 @@ async function getChannelSummary(req, res) {
   }
 }
 
-module.exports = { getChannelInfo, getRecentVideos, getChannelSummary };
+
+/** ---------- cadence heatmap handler ---------- **/
+/** ---------- cadence heatmap handler (weighted) ---------- **/
+async function getCadence(req, res) {
+  try {
+    const { url, channelId, limit = 100, minCount = 2 } = req.query;
+    const id = await resolveChannelId({ url, channelId });
+
+    const uploadsId = await getUploadsPlaylistId(id);
+    if (!uploadsId) return res.status(404).json({ error: 'Uploads playlist not found' });
+
+    const cap = Math.min(parseInt(limit, 10) || 100, 200);
+
+    // 1) Page playlistItems: we need publishedAt (+ videoId for stats)
+    const timestamps = [];     // ISO strings
+    const videoIds = [];       // for stats
+    let pageToken;
+
+    while (timestamps.length < cap) {
+      const { data } = await axios.get('https://www.googleapis.com/youtube/v3/playlistItems', {
+        params: {
+          part: 'snippet,contentDetails',
+          playlistId: uploadsId,
+          maxResults: 50,
+          pageToken,
+          key: YOUTUBE_API_KEY,
+        },
+      });
+
+      for (const it of data.items || []) {
+        const ts = it?.snippet?.publishedAt;
+        const vid = it?.contentDetails?.videoId || it?.snippet?.resourceId?.videoId;
+        if (ts && vid) {
+          timestamps.push(ts);
+          videoIds.push(vid);
+        }
+        if (timestamps.length >= cap) break;
+      }
+
+      pageToken = data.nextPageToken;
+      if (!pageToken) break;
+    }
+
+    // 2) Fetch statistics for these videos in batches of 50
+    const statsById = new Map(); // id -> { views, likes, comments }
+    for (let i = 0; i < videoIds.length; i += 50) {
+      const chunk = videoIds.slice(i, i + 50);
+      const { data } = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+        params: {
+          part: 'statistics',
+          id: chunk.join(','),
+          key: YOUTUBE_API_KEY,
+        },
+      });
+      for (const v of data.items || []) {
+        const views = v?.statistics?.viewCount ? Number(v.statistics.viewCount) : 0;
+        const likes = v?.statistics?.likeCount ? Number(v.statistics.likeCount) : 0;
+        const comments = v?.statistics?.commentCount ? Number(v.statistics.commentCount) : 0;
+        statsById.set(v.id, { views, likes, comments });
+      }
+    }
+
+    // 3) Build 7x24 buckets (Mon..Sun x 0..23) with sums + count
+    const mkGrid = (fill) => Array.from({ length: 7 }, () => Array(24).fill(fill));
+    const count = mkGrid(0);
+    const sumViews = mkGrid(0);
+    const sumLikes = mkGrid(0);
+    const sumComments = mkGrid(0);
+
+    for (let i = 0; i < timestamps.length; i++) {
+      const iso = timestamps[i];
+      const vid = videoIds[i];
+      const { day, hour } = istDayHour(iso);
+      const s = statsById.get(vid) || { views: 0, likes: 0, comments: 0 };
+
+      count[day][hour] += 1;
+      sumViews[day][hour] += s.views;
+      sumLikes[day][hour] += s.likes;
+      sumComments[day][hour] += s.comments;
+    }
+
+    // 4) Compute averages
+    const avgViews = mkGrid(0);
+    const avgER = mkGrid(null); // engagement rate fraction (0..1) or null if no views
+    for (let d = 0; d < 7; d++) {
+      for (let h = 0; h < 24; h++) {
+        const c = count[d][h];
+        if (c > 0) {
+          const v = sumViews[d][h];
+          const l = sumLikes[d][h];
+          const cm = sumComments[d][h];
+          avgViews[d][h] = Math.round(v / c); // average views per upload
+          if (v > 0) {
+            avgER[d][h] = Number(((l + cm) / v).toFixed(4)); // fraction
+          } else {
+            avgER[d][h] = null;
+          }
+        }
+      }
+    }
+
+    // 5) Pick "best time windows"
+    // You can rank by avgViews or avgER; here we provide both sets.
+    const rankSlots = (grid, metricName, needsCount = false) => {
+      const rows = [];
+      for (let d = 0; d < 7; d++) {
+        for (let h = 0; h < 24; h++) {
+          const val = grid[d][h];
+          if (val == null) continue;
+          if (needsCount && count[d][h] < (parseInt(minCount, 10) || 2)) continue; // avoid 1-sample flukes
+          rows.push({
+            day: d, hour: h, value: val,
+            samples: count[d][h],
+            avgViews: avgViews[d][h],
+            avgER: avgER[d][h],
+          });
+        }
+      }
+      rows.sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity));
+      return rows.slice(0, 5); // top 5
+    };
+
+    const topByAvgViews = rankSlots(avgViews, 'avgViews', true);
+    const topByAvgER = rankSlots(avgER, 'avgER', true);
+
+    return res.json({
+      grids: {
+        count,           // uploads heatmap (what you show now)
+        avgViews,        // average views per slot
+        avgER,           // average engagement rate per slot (0..1)
+      },
+      dayLabels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      hourLabels: Array.from({ length: 24 }, (_, i) => i),
+      total: timestamps.length,
+      suggestions: {
+        minCount: parseInt(minCount, 10) || 2,
+        topByAvgViews,    // [{day, hour, value, samples, avgViews, avgER}, ...]
+        topByAvgER,       // same shape
+      },
+    });
+  } catch (err) {
+    const status = err?.response?.status || (/required|Invalid|not found/i.test(err.message) ? 400 : 500);
+    console.error('getCadence error:', status, err?.response?.data || err.message);
+    return res.status(status).json({ error: err.message || 'Failed to compute cadence' });
+  }
+}
+
+
+
+module.exports = { getChannelInfo, getRecentVideos, getChannelSummary, getCadence };

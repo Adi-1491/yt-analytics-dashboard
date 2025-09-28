@@ -45,6 +45,22 @@ export interface SummaryResponse {
   videos: VideoItem[];
 }
 
+export type CadenceResponse = {
+  grids: {
+    count: number[][];
+    avgViews: number[][];
+    avgER: (number | null)[][];
+  };
+  dayLabels: string[];
+  hourLabels: number[];
+  total: number;
+  suggestions: {
+    minCount: number;
+    topByAvgViews: Array<{ day:number; hour:number; value:number; samples:number; avgViews:number; avgER:number|null }>;
+    topByAvgER: Array<{ day:number; hour:number; value:number|null; samples:number; avgViews:number; avgER:number|null }>;
+  };
+};
+
 /* ---------- Requests ---------- */
 
 type ChannelInput = { url: string } | { channelId: string };
@@ -86,4 +102,11 @@ export async function getRecentVideos(
   const body: RecentRequest = { channelId, ...opts };
   const { data } = await axios.post(`${API_BASE}/recent`, body);
   return data as VideoItem[];
+}
+
+export async function getCadence(channelId: string, limit = 100, minCount = 2) {
+  const { data } = await axios.get<CadenceResponse>(`${API_BASE}/insights/cadence`, {
+    params: { channelId, limit, minCount },
+  });
+  return data;
 }

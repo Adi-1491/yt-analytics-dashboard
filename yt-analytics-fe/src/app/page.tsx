@@ -16,6 +16,7 @@ import AggregatesBar from "./components/AggregatesBar";
 import VideoTable from "./components/VideoTable";
 import UploadsPerWeekChart from "./components/UploadsPerWeekChart";
 import ViewsOverTimeChart from "./components/ViewsOverTimeChart";
+import CadenceHeatmap from "./components/CadenceHeatmap";
 
 import { uploadsPerWeek, viewsOverTime } from "./lib/analytics";
 import { isAxiosError } from "axios";
@@ -186,7 +187,7 @@ function goToPage(page: number) {
   // ui
   return (
     <main className="mx-auto max-w-4xl p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">YouTube Analytics — Dev</h1>
+      <h1 className="text-2xl font-semibold">YouTube Analytics Tool</h1>
 
       {/* health */}
       <div className="flex items-center gap-2">
@@ -280,6 +281,11 @@ function goToPage(page: number) {
             label="Views"
           />
         </>
+      )}
+
+      {/* Heat Map */}
+      {!loading && channel && (
+        <CadenceHeatmap channelId={channel.channelId} limit={100} />
       )}
 
       {/* table (paginated) */}
