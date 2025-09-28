@@ -372,5 +372,4 @@ async function getCadence(req, res) {
 }
 
 
-
 module.exports = { getChannelInfo, getRecentVideos, getChannelSummary, getCadence };
