@@ -34,3 +34,43 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+Our heatmap visualization is designed to help content creators optimize their YouTube posting schedule. Let me break it down:
+
+Core Functionality
+It's a 7×24 grid representing every hour of every day of the week
+The intensity of the blue color in each cell represents one of three metrics:
+Upload frequency
+Average views
+Average engagement rate (ER)
+Technical Implementation
+Uplo
+Key Features
+Dynamic Coloring:
+
+Each cell's opacity is calculated relative to the maximum value in the grid
+Formula: opacity = baseOpacity + (value/maxValue * intensityRange)
+Interactive Elements:
+
+Tooltips showing detailed metrics for each time slot
+Toggle between different metrics (uploads, views, engagement)
+Performance Optimization:
+
+Used useMemo for calculations to prevent unnecessary re-renders
+Grid data is pre-processed on the backend
+Business Value
+Helps creators identify optimal posting times
+Shows patterns in audience engagement
+Supports data-driven content scheduling decisions
+Engagement Rate calculation: ER = ((Likes + Comments) / Views) × 100%
+This visualization turns complex posting data into an intuitive, actionable format that directly impacts content strategy."
+
+Upload Count (Post Frequency): Indicates your posting pattern
+Shows when you're most consistent in uploading
+Useful for understanding your current schedule
+
+Average Views
+Indicates audience engagement timing
+Shows when your audience is most active
+Helps optimize posting schedule for maximum reach

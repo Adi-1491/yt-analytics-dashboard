@@ -87,8 +87,7 @@ export default function CadenceHeatmap({
       <div className="flex gap-2 text-xs">
         <button
           className={`px-2 py-1 rounded border ${mode === "count" ? "opacity-100" : "opacity-60"}`}
-          onClick={() => setMode("count")}
-        >
+          onClick={() => setMode("count")}>
           Uploads
         </button>
         <button
@@ -142,6 +141,30 @@ export default function CadenceHeatmap({
         Darker = higher {mode === "count" ? "uploads" : mode === "avgViews" ? "average views" : "average engagement rate"} in that hour (IST).
         Monday is the first row.
       </p>
+
+      {/* Metrics explanation */}
+        <div className="text-xs space-y-2 p-3 bg-black rounded-md mt-4">
+          <h4 className="font-semibold">Understanding the Metrics:</h4>
+          <dl className="space-y-2">
+            <div>
+              <dt className="font-medium inline">n = </dt>
+              <dd className="inline">Number of video samples in this time slot</dd>
+            </div>
+            <div>
+              <dt className="font-medium inline">ER (Engagement Rate) = </dt>
+              <dd className="inline">
+                ((Likes + Comments) / Views) × 100%
+                <span className="block text-white mt-1">
+                  • Ranges from 0% to 100%
+                  <br />
+                  • Higher percentages indicate better audience engagement
+                  <br />
+                  • Industry average is typically 3-5%
+                </span>
+              </dd>
+            </div>
+          </dl>
+        </div>
 
       {/* Best time suggestions (from backend) */}
       <Suggestions

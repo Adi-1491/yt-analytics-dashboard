@@ -43,8 +43,27 @@ export default function HomePage() {
   const [err, setErr] = useState<string | null>(null);
 
   // filters
-  const [days, setDays] = useState(30);
-  const [maxResults, setMaxResults] = useState(10);
+  const [days, setDays] = useState("30");
+  const [maxResults, setMaxResults] = useState("10");
+
+  // Add handlers for input changes and blur events
+  const handleDaysChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDays(e.target.value);
+  };
+
+  const handleDaysBlur = () => {
+    const num = parseInt(days) || 30;
+    setDays(Math.max(1, Math.min(365, num)).toString());
+  };
+
+  const handleMaxResultsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMaxResults(e.target.value);
+  };
+
+  const handleMaxResultsBlur = () => {
+    const num = parseInt(maxResults) || 10;
+    setMaxResults(Math.max(1, Math.min(50, num)).toString());
+  };
 
   // data
   const [channel, setChannel] = useState<ChannelSummary | null>(null);
@@ -167,11 +186,11 @@ function goToPage(page: number) {
       localStorage.setItem("lastSearch", input.trim());
 
       // 2) fetch summary (with filters)
-      const sum = await getChannelSummary(chan.channelId, { days, maxResults });
+      const sum = await getChannelSummary(chan.channelId, { days: parseInt(days), maxResults: parseInt(maxResults) });
       setSummary(sum);
 
       // 3) fetch recent videos (with filters)
-      const vids = await getRecentVideos(chan.channelId, { days, maxResults });
+      const vids = await getRecentVideos(chan.channelId, { days: parseInt(days), maxResults: parseInt(maxResults) });
       setRecent(vids);
     } catch (e: unknown) {
       setErr(errorMessage(e));
@@ -220,7 +239,8 @@ function goToPage(page: number) {
             min={1}
             max={365}
             value={days}
-            onChange={(e) => setDays(Math.max(1, Math.min(365, Number(e.target.value) || 30)))}
+            onChange={handleDaysChange}
+            onBlur={handleDaysBlur}
             className="w-20 rounded-md border px-2 py-1"
           />
         </label>
@@ -231,7 +251,8 @@ function goToPage(page: number) {
             min={1}
             max={50}
             value={maxResults}
-            onChange={(e) => setMaxResults(Math.max(1, Math.min(50, Number(e.target.value) || 10)))}
+            onChange={handleMaxResultsChange}
+            onBlur={handleMaxResultsBlur}
             className="w-24 rounded-md border px-2 py-1"
           />
         </label>
@@ -241,8 +262,10 @@ function goToPage(page: number) {
           {[7, 30, 90].map((d) => (
             <button
               key={d}
-              onClick={() => setDays(d)}
-              className={`rounded-md border px-2 py-1 ${days === d ? "bg-gray-200 text-black" : ""}`}
+              onClick={() => setDays(d.toString())}
+              className={`rounded-md border px-2 py-1 ${
+                parseInt(days) === d ? "bg-gray-200 text-black" : ""
+              }`}
             >
               {d}d
             </button>
