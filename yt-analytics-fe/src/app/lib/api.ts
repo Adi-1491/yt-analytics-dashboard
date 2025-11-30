@@ -110,3 +110,72 @@ export async function getCadence(channelId: string, limit = 100, minCount = 2) {
   });
   return data;
 }
+
+export type CompetitorSummary = {
+  channelId: string,
+  handle?: string | null,
+  title: string,
+  thumb?: string | null,
+  subs: number,
+  totalViews: number,
+  totalVideos: number,
+  avgViews10: number, // avg of last 10 videos
+  avgER10: number, // percent (0..100)
+  uploadsPerWeek: number,
+  lastVideosAt?: string | null;
+}
+
+function _asNumber (x: unknown, fallBack = 0) : number {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : fallBack;
+}
+
+export async function getCompetitorSummary(input:string) : Promise<CompetitorSummary> {
+  const raw = input.trim();
+  const looksUC = /^UC[a-zA-Z0-9_-]{22}$/.test(raw);
+  const isUrl = /^https?:\/\//i.test(raw);
+  const isHandle = raw.startsWith("@") || (!looksUC && !isUrl && !raw.includes(" "));
+
+  const chan = await getChannelInfo(
+    looksUC ? { channelId: raw }
+            : isHandle ? { url: raw.startsWith("@") ? raw : `@${raw}` }
+                       : { url: raw }
+  );
+
+  //Get Video History
+  const summary = await getChannelSummary(chan.channelId, {days:365, maxResults: 20});
+
+  //Get Last 10 Videos (Sorted by Date)
+  const vids = [...(summary.videos || [])]
+        .sort((a,b) => Date.parse(b.publishedAt || "0") - Date.parse(a.publishedAt || "0"))
+        .slice(0, 10);
+
+  //calculate average views(last 10 videos)
+  const avgViews10 = vids.length ? Math.round(vids.reduce((s,v) => s + _asNumber(v.views), 0) / vids.length) : 0;
+
+  //engagement rate of each video
+  const ers = vids.map(v => {
+    const views = _asNumber(v.views);
+    if(!views) return 0;
+    const likes = _asNumber(v.likes);
+    const comments = _asNumber(v.comments);
+    return ((likes + comments)/views) * 100;
+  });
+
+  //calculate avg engagement rate
+  const avgER10 = ers.length ? Number((ers.reduce((a,b) => a + b, 0) / ers.length).toFixed(2)) : 0;
+
+  return {
+    channelId: chan.channelId,
+    handle: null,
+    title: chan.name,
+    thumb: chan.profilePic || null,
+    subs: _asNumber(chan.subscribers),
+    totalViews: _asNumber(chan.totalViews),
+    totalVideos: _asNumber(chan.totalVideos),
+    avgViews10,
+    avgER10,
+    uploadsPerWeek: summary.aggregates?.uploadPerWeek ?? 0,
+    lastVideosAt: vids[0]?.publishedAt || null,
+  };
+}

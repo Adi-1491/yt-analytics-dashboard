@@ -6,6 +6,12 @@ function looksLikeChannelId(s) {
   }
   
   function extractChannelId(input) {
+
+     // Raw @handle (no URL)
+    if (typeof input === 'string' && input.startsWith('@')) {
+      return { type: 'handle', value: input.slice(1) };
+    }
+
     // If user pasted a raw id like "UC_x5XG1OV2P6uZZ5FSM9Ttw"
     if (looksLikeChannelId(input)) {
       return { type: 'id', value: input };
